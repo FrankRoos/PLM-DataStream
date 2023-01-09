@@ -82,6 +82,7 @@ public class HttpStreamProtocol extends PullProtocol {
         this.selected_sensors = getSelectedSensors(base_url, repository, model, this.accessToken);
         System.out.println(selected_sensors);
         this.url = getUrl(this.selected_sensors, base_url, repository, model, sensorName, this.accessToken);
+        System.out.println(this.url);
     }
 
     @Override
@@ -178,9 +179,9 @@ public class HttpStreamProtocol extends PullProtocol {
     @Override
     public InputStream getDataFromEndpoint() throws ParseException {
         InputStream result;
-
+        System.out.println(this.url);
         try {
-            Request request = Request.Get(url)
+            Request request = Request.Get(this.url)
                     .connectTimeout(1000)
                     .socketTimeout(100000);
 
@@ -342,15 +343,19 @@ public class HttpStreamProtocol extends PullProtocol {
         String urn, urlString = null;
 
         for (JSONObject sensor : selected_sensors) {
-            if (sensor.get("name") == sensorName) {
+            System.out.println("dentro FOR");
+            if (sensor.get("name").equals(sensorName)) {
+                System.out.println("Dentro IF");
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
                 urlString = base_url + "bkd/aggr/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + accessToken;
                 //replace spaces by "%20" to avoid 400 Bad Request
                 if(urlString.contains(" "))
                     urlString = urlString.replace(" ", "%20");
+                System.out.println(urlString);
                 break;
             }
-        }        return urlString;
+        }
+        return urlString;
     }
 
 
