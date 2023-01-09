@@ -44,8 +44,8 @@ import java.util.List;
 import java.io.InputStream;
 import java.util.Map;
 
-public class HttpStreamProtocolPLM extends PullProtocol {
-    Logger logger = LoggerFactory.getLogger(HttpStreamProtocolPLM.class);
+public class HttpStreamProtocol extends PullProtocol {
+    Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
     public static final String ID = "org.example.pe.example.datasourceplm";
     private static final String USERNAME_PROPERTY ="username";
     private static final String PASSWORD_PROPERTY ="password";
@@ -59,10 +59,10 @@ public class HttpStreamProtocolPLM extends PullProtocol {
     private String accessToken;
     List<JSONObject> selected_sensors = new ArrayList<>();
 
-    public HttpStreamProtocolPLM() {
+    public HttpStreamProtocol() {
     }
 
-    public HttpStreamProtocolPLM(IParser parser, IFormat format, String username, String password, String group, String base_url, String repository, String model, String sensorName, long interval) {
+    public HttpStreamProtocol(IParser parser, IFormat format, String username, String password, String group, String base_url, String repository, String model, String sensorName, long interval) {
         super(parser, format, interval);
         this.accessToken = login(username, password, group, base_url);
         this.selected_sensors = getSelectedSensors(base_url, repository, model);
@@ -85,7 +85,7 @@ public class HttpStreamProtocolPLM extends PullProtocol {
             long intervalProperty = Long.parseLong(extractor.singleValue(INTERVAL_PROPERTY));
             // TODO change access token to an optional parameter
             //  String accessToken = extractor.singleValue(ACCESS_TOKEN_PROPERTY);
-            return new HttpStreamProtocolPLM(parser, format, user, pass, group, base_url, repository, model, sensor, intervalProperty);
+            return new HttpStreamProtocol(parser, format, user, pass, group, base_url, repository, model, sensor, intervalProperty);
         } catch (NumberFormatException e) {
             logger.error("Could not parse" + extractor.singleValue(INTERVAL_PROPERTY) + "to int");
             return null;
