@@ -20,10 +20,8 @@ package org.example.pe.example;
 
 import org.apache.http.client.fluent.Request;
 import org.apache.streampipes.connect.api.IParser;
-import org.apache.streampipes.model.graph.DataProcessorInvocation;
 import org.apache.streampipes.sdk.helpers.Locales;
 import org.apache.streampipes.sdk.utils.Assets;
-import org.apache.streampipes.wrapper.standalone.ProcessorParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.streampipes.connect.api.exception.ParseException;
@@ -41,19 +39,14 @@ import org.apache.streampipes.sdk.helpers.Labels;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.InputStream;
 import java.util.Map;
 
-public class HttpStreamProtocol extends PullProtocol {
-
-    Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
-    public static final String ID = "org.example.pe.example.datasource";
+public class HttpStreamProtocolPLM extends PullProtocol {
+    Logger logger = LoggerFactory.getLogger(HttpStreamProtocolPLM.class);
+    public static final String ID = "org.example.pe.example.datasourceplm";
     private static final String USERNAME_PROPERTY ="username";
     private static final String PASSWORD_PROPERTY ="password";
     private static final String USER_GROUP_PROPERTY ="group";
@@ -61,49 +54,38 @@ public class HttpStreamProtocol extends PullProtocol {
     private static final String REPOSITORY_PROPERTY ="repository";
     private static final String MODEL_PROPERTY = "model";
     private static final String SENSOR_PROPERTY = "sensor";
-
     private static final String INTERVAL_PROPERTY ="interval";
-    //private static final String ACCESS_TOKEN_PROPERTY ="access_token";
-
     private String url;
     private String accessToken;
-
     List<JSONObject> selected_sensors = new ArrayList<>();
 
-    public HttpStreamProtocol() {
+    public HttpStreamProtocolPLM() {
     }
 
-
-    public HttpStreamProtocol(IParser parser, IFormat format, String username, String password, String group, String base_url, String repository, String model, String sensorName, long interval) {
+    public HttpStreamProtocolPLM(IParser parser, IFormat format, String username, String password, String group, String base_url, String repository, String model, String sensorName, long interval) {
         super(parser, format, interval);
-        //System.out.println(base_url+" "+repository+ " "+model+" "+sensorName);
         this.accessToken = login(username, password, group, base_url);
-        //System.out.println(accessToken);
-        this.selected_sensors = getSelectedSensors(base_url, repository, model, this.accessToken);
-        System.out.println(selected_sensors);
-        this.url = getUrl(this.selected_sensors, base_url, repository, model, sensorName, this.accessToken);
-        System.out.println(this.url);
+        this.selected_sensors = getSelectedSensors(base_url, repository, model);
+        this.url = getUrl(this.selected_sensors, base_url, repository, model, sensorName);
     }
 
     @Override
     public Protocol getInstance(ProtocolDescription protocolDescription, IParser parser, IFormat format) {
         ParameterExtractor extractor = new ParameterExtractor(protocolDescription.getConfig());
-        //ProcessorParams parameter = new ProcessorParams((DataProcessorInvocation) protocolDescription.getConfig());
 
-        String usernameProperty = extractor.singleValue(USERNAME_PROPERTY);
-        String passwordProperty = extractor.singleValue(PASSWORD_PROPERTY);
-        String groupProperty = extractor.singleValue(USER_GROUP_PROPERTY);
-        String base_urlProperty = extractor.singleValue(BASE_URL_PROPERTY);
-        String repositoryProperty = extractor.singleValue(REPOSITORY_PROPERTY);
-        String modelProperty = extractor.singleValue(MODEL_PROPERTY);
-        String sensorProperty = extractor.singleValue(SENSOR_PROPERTY);
-        System.out.println(usernameProperty+" "+passwordProperty);
+        String user = extractor.singleValue(USERNAME_PROPERTY);
+        String pass = extractor.singleValue(PASSWORD_PROPERTY);
+        String group = extractor.singleValue(USER_GROUP_PROPERTY);
+        String base_url = extractor.singleValue(BASE_URL_PROPERTY);
+        String repository = extractor.singleValue(REPOSITORY_PROPERTY);
+        String model = extractor.singleValue(MODEL_PROPERTY);
+        String sensor = extractor.singleValue(SENSOR_PROPERTY);
 
         try {
             long intervalProperty = Long.parseLong(extractor.singleValue(INTERVAL_PROPERTY));
             // TODO change access token to an optional parameter
-        //  String accessToken = extractor.singleValue(ACCESS_TOKEN_PROPERTY);
-            return new HttpStreamProtocol(parser, format, usernameProperty, passwordProperty, groupProperty, base_urlProperty, repositoryProperty, modelProperty, sensorProperty, intervalProperty);
+            //  String accessToken = extractor.singleValue(ACCESS_TOKEN_PROPERTY);
+            return new HttpStreamProtocolPLM(parser, format, user, pass, group, base_url, repository, model, sensor, intervalProperty);
         } catch (NumberFormatException e) {
             logger.error("Could not parse" + extractor.singleValue(INTERVAL_PROPERTY) + "to int");
             return null;
@@ -120,53 +102,44 @@ public class HttpStreamProtocol extends PullProtocol {
                 .category(AdapterType.Generic)
                 .requiredTextParameter(Labels.withId(USERNAME_PROPERTY))
                 .requiredTextParameter(Labels.withId(PASSWORD_PROPERTY))
-                .requiredTextParameter(Labels.withId(USER_GROUP_PROPERTY))
-                .requiredTextParameter(Labels.withId(BASE_URL_PROPERTY))
-                .requiredTextParameter(Labels.withId(REPOSITORY_PROPERTY))
+                .requiredTextParameter(Labels.withId(USER_GROUP_PROPERTY), "sdai-group")
+                .requiredTextParameter(Labels.withId(BASE_URL_PROPERTY), "https://kyklos.jotne.com/EDMtruePLM/api/")
+                .requiredTextParameter(Labels.withId(REPOSITORY_PROPERTY), "TruePLMprojectsRep")
                 .requiredTextParameter(Labels.withId(MODEL_PROPERTY))
                 .requiredTextParameter(Labels.withId(SENSOR_PROPERTY))
                 .requiredIntegerParameter(Labels.withId(INTERVAL_PROPERTY))
-                //.requiredTextParameter(Labels.from(ACCESS_TOKEN_PROPERTY, "Access Token", "Http
-                // Access Token"))
                 .build();
     }
 
     @Override
     public GuessSchema getGuessSchema() throws ParseException {
         int n = 8;
-
         InputStream dataInputStream = getDataFromEndpoint();
 
         List<byte[]> dataByte = parser.parseNEvents(dataInputStream, n);
         if (dataByte.size() < n) {
-            logger.error("Error in HttpStreamProtocol! Required: " + n + " elements but the resource just had: " +
+            logger.error("Error in HttpStreamProtocolPLM! Required: " + n + " elements but the resource just had: " +
                     dataByte.size());
-
             dataByte.addAll(dataByte);
         }
         EventSchema eventSchema= parser.getEventSchema(dataByte);
-
         return SchemaGuesser.guessSchema(eventSchema);
     }
 
     @Override
     public List<Map<String, Object>> getNElements(int n) throws ParseException {
         List<Map<String, Object>> result = new ArrayList<>();
-
         InputStream dataInputStream = getDataFromEndpoint();
-
         List<byte[]> dataByte = parser.parseNEvents(dataInputStream, n);
 
         // Check that result size is n. Currently just an error is logged. Maybe change to an exception
         if (dataByte.size() < n) {
-            logger.error("Error in HttpStreamProtocol! User required: " + n + " elements but the resource just had: " +
+            logger.error("Error in HttpStreamProtocolPLM! User required: " + n + " elements but the resource just had: " +
                     dataByte.size());
         }
-
         for (byte[] b : dataByte) {
             result.add(format.parse(b));
         }
-
         return result;
     }
 
@@ -179,118 +152,84 @@ public class HttpStreamProtocol extends PullProtocol {
     @Override
     public InputStream getDataFromEndpoint() throws ParseException {
         InputStream result;
-        System.out.println(this.url);
         try {
-            Request request = Request.Get(this.url)
+            Request request = Request.Get(url)
                     .connectTimeout(1000)
-                    .socketTimeout(100000);
+                    .socketTimeout(100000)
+                    .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
                 request.setHeader("Authorization", "Bearer " + this.accessToken);
             }
-
             result = request
                     .execute().returnContent().asStream();
-
-//            if (s.startsWith("ï")) {
-//                s = s.substring(3);
-//            }
-//            result = IOUtils.toInputStream(s, "UTF-8");
-
         } catch (Exception e) {
             logger.error("Error while fetching data from URL: " + url, e);
             throw new ParseException("Error while fetching data from URL: " + url);
-//            throw new AdapterException();
         }
         if (result == null)
             throw new ParseException("Could not receive Data from file: " + url);
-
         return result;
     }
 
+    private String login(String user, String pass, String group, String base_url) throws ParseException{
+        String urlString, response, token;
+        urlString = base_url + "admin/token?group=" + group + "&pass=" + pass + "&user=" + user;
+        if(urlString.contains(" "))
+            urlString = urlString.replace(" ", "%20");
 
-
-
-
-    private static String login(String user, String pass, String group, String base_url) {
-        String urlString, token = null;
         try {
-            urlString = base_url + "admin/token?group=" + group + "&pass=" + pass + "&user=" + user;
-            if(urlString.contains(" "))
-                urlString = urlString.replace(" ", "%20");
-            System.out.println(urlString);
-            //URL url = new URL(urlString);
-            URL url = new URL("https://kyklos.jotne.com/EDMtruePLM/api/admin/token?group=sdai-group&pass=!Gen8ric&user=gkyklos");
+            Request request = Request.Post(urlString)
+                    .connectTimeout(1000)
+                    .socketTimeout(100000)
+                    .setHeader("Content-Type", "application/json");
 
-            // Open a connection to the API endpoint
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json");
-            // Send the POST request to the API endpoint
-            connection.connect();
-
-            // Read the response from the API endpoint
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
+            if (this.accessToken != null && !this.accessToken.equals("")) {
+                request.setHeader("Authorization", "Bearer " + this.accessToken);
             }
-
-            System.out.println(response);
-            String json_string = String.valueOf(response);
+            response = request
+                    .execute().returnContent().toString();
+            if (response == null)
+                throw new ParseException("Could not receive Data from file: " + urlString);
             // Parse the JSON string as a JSON object
-            JSONObject json_object = new JSONObject(json_string);
+            JSONObject json_object = new JSONObject(response);
             // Access the data in the JSON object
             token = json_object.getString("token");
 
         } catch (Exception e) {
-            // Handle any exceptions that occur
-            e.printStackTrace();
+            logger.error("Error while fetching data from URL: " + urlString, e);
+            throw new ParseException("Error while fetching data from URL: " + urlString);
         }
         return token;
     }
 
 
-    private static StringBuilder connectToPLMBackend(String urlString, String accessToken) {
-        String line;
-        StringBuilder response = new StringBuilder();
-        //replace spaces by "%20" to avoid 400 Bad Request
+    private JSONArray sensorsList(String base_url, String repository, String model) throws ParseException{
+        String response, urlString;
+        // Set the URL of the API endpoint
+        urlString = base_url + "bkd/q_search/" + repository + "/" + model + "/" + this.accessToken + "?case_sens=false&domains=PROPERTY&folder_only=false&pattern=*";
         if(urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
         try {
-            // Set the URL of the API endpoint
-            URL url = new URL(urlString);
-            // Open a connection to the API endpoint
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Content-Type", "application/json");
-            // Set the token in the HTTP header of the request
-            connection.setRequestProperty("Authorization", "Bearer" + accessToken);
-            // Send the GET request to the API endpoint
-            connection.connect();
-            // Read the response from the API endpoint
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
-            }
-        } catch (Exception e) {
-            // Handle any exceptions that occur
-            e.printStackTrace();
-        }
-        return response;
-    }
+            Request request = Request.Get(urlString)
+                    .connectTimeout(1000)
+                    .socketTimeout(100000)
+                    .setHeader("Content-Type", "application/json");
 
-    private static JSONArray sensorsList(String base_url, String repository, String model,String accessToken) {
-        // Set the URL of the API endpoint
-        String urlString = base_url + "bkd/q_search/" + repository + "/" + model + "/" + accessToken + "?case_sens=false&domains=PROPERTY&pattern=*&folder_only=false";
-        StringBuilder response = connectToPLMBackend(urlString, accessToken);
-        System.out.println(response);
-        // Get a String representation of the StringBuilder
-        String json_array = response.toString();
-        // Convert the String to a JSONArray
-        return new JSONArray(json_array);
+            if (this.accessToken != null && !this.accessToken.equals("")) {
+                request.setHeader("Authorization", "Bearer " + this.accessToken);
+            }
+            response = request
+                    .execute().returnContent().toString();
+            if (response == null)
+                throw new ParseException("Could not receive Data from file: " + urlString);
+
+        } catch (Exception e) {
+            logger.error("Error while fetching data from URL: " + urlString, e);
+            throw new ParseException("Error while fetching data from URL: " + urlString);
+        }
+        return new JSONArray(response);
     }
 
     private static boolean checkIfDigit(String val_part) {
@@ -302,14 +241,12 @@ public class HttpStreamProtocol extends PullProtocol {
                 break; }}        return isNumber;
     }
 
-    private List<JSONObject> getSelectedSensors(String base_url, String repository, String model, String accessToken){
+    private List<JSONObject> getSelectedSensors(String base_url, String repository, String model){
         JSONArray sensor_properties;
         JSONObject sensor, element_info, json_selected_sensor;
         String string_selected_sensor;
         List<JSONObject> selected_sensors = new ArrayList<>();
-
-        JSONArray sensors = sensorsList(base_url, repository, model, accessToken);
-        System.out.println(sensors);
+        JSONArray sensors = sensorsList(base_url, repository, model);
 
         for (int i = 0; i < sensors.length(); i++) {
             sensor = sensors.getJSONObject(i);
@@ -339,25 +276,19 @@ public class HttpStreamProtocol extends PullProtocol {
         return selected_sensors;
     }
 
-    private String getUrl(List<JSONObject> selected_sensors, String base_url, String repository, String model, String sensorName, String accessToken) {
+    private String getUrl(List<JSONObject> selected_sensors, String base_url, String repository, String model, String sensorName) {
         String urn, urlString = null;
 
         for (JSONObject sensor : selected_sensors) {
-            System.out.println("dentro FOR");
             if (sensor.get("name").equals(sensorName)) {
-                System.out.println("Dentro IF");
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
-                urlString = base_url + "bkd/aggr/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + accessToken;
+                urlString = base_url + "bkd/aggr/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json"; //&_=1672309152628
                 //replace spaces by "%20" to avoid 400 Bad Request
                 if(urlString.contains(" "))
                     urlString = urlString.replace(" ", "%20");
-                System.out.println(urlString);
                 break;
             }
-        }
-        return urlString;
+        }        return urlString;
     }
-
-
 
 }
