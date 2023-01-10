@@ -39,14 +39,13 @@ import org.apache.streampipes.sdk.helpers.Labels;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.util.ArrayList;
-import java.util.List;
+
+import java.util.*;
 import java.io.InputStream;
-import java.util.Map;
 
 public class HttpStreamProtocol extends PullProtocol {
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
-    public static final String ID = "org.example.pe.example.datasourceplm";
+    public static final String ID = "org.example.pe.example.datasource";
     private static final String USERNAME_PROPERTY ="username";
     private static final String PASSWORD_PROPERTY ="password";
     private static final String USER_GROUP_PROPERTY ="group";
@@ -58,6 +57,7 @@ public class HttpStreamProtocol extends PullProtocol {
     private String url;
     private String accessToken;
     List<JSONObject> selected_sensors = new ArrayList<>();
+
 
     public HttpStreamProtocol() {
     }
