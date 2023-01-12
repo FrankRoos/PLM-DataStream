@@ -57,7 +57,7 @@ public class HttpStreamProtocol extends PullProtocol {
     private String url;
     private String accessToken;
     List<JSONObject> selected_sensors = new ArrayList<>();
-
+    JSONObject data_info = new JSONObject();
 
     public HttpStreamProtocol() {
     }
@@ -66,8 +66,11 @@ public class HttpStreamProtocol extends PullProtocol {
         super(parser, format, interval);
         this.accessToken = login(username, password, group, base_url);
         this.selected_sensors = getSelectedSensors(base_url, repository, model);
-        this.url = getUrl(this.selected_sensors, base_url, repository, model, sensorName);
+        this.data_info = getDataInfo(this.selected_sensors, base_url, repository, model, sensorName);
+        this.url = getUrl(data_info, base_url);
     }
+
+
 
     @Override
     public Protocol getInstance(ProtocolDescription protocolDescription, IParser parser, IFormat format) {
@@ -153,16 +156,18 @@ public class HttpStreamProtocol extends PullProtocol {
     public InputStream getDataFromEndpoint() throws ParseException {
         InputStream result;
         try {
-            Request request = Request.Get(url)
-                    .connectTimeout(1000)
-                    .socketTimeout(100000)
-                    .setHeader("Content-Type", "application/json");
+            Request request = Request.Get(this.url)
+                    .connectTimeout(60000)
+                    .socketTimeout(180000)
+                    .setHeader("Content-Type", "application/json")
+                    .setHeader("connection","keep-alive");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
                 request.setHeader("Authorization", "Bearer " + this.accessToken);
             }
             result = request
                     .execute().returnContent().asStream();
+
         } catch (Exception e) {
             logger.error("Error while fetching data from URL: " + url, e);
             throw new ParseException("Error while fetching data from URL: " + url);
@@ -180,9 +185,11 @@ public class HttpStreamProtocol extends PullProtocol {
 
         try {
             Request request = Request.Post(urlString)
-                    .connectTimeout(1000)
-                    .socketTimeout(100000)
-                    .setHeader("Content-Type", "application/json");
+                    .connectTimeout(240000)
+                    .socketTimeout(240000)
+                    .setHeader("Content-Type", "application/json")
+                    .setHeader("connection","keep-alive");
+
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
                 request.setHeader("Authorization", "Bearer " + this.accessToken);
@@ -211,11 +218,12 @@ public class HttpStreamProtocol extends PullProtocol {
         if(urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
-        try {
+        try{
             Request request = Request.Get(urlString)
-                    .connectTimeout(1000)
-                    .socketTimeout(100000)
-                    .setHeader("Content-Type", "application/json");
+                    .connectTimeout(240000)
+                    .socketTimeout(2400000)
+                    .setHeader("Content-Type", "application/json")
+                    .setHeader("connection","keep-alive");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
                 request.setHeader("Authorization", "Bearer " + this.accessToken);
@@ -276,19 +284,49 @@ public class HttpStreamProtocol extends PullProtocol {
         return selected_sensors;
     }
 
-    private String getUrl(List<JSONObject> selected_sensors, String base_url, String repository, String model, String sensorName) {
-        String urn, urlString = null;
+    private JSONObject getDataInfo(List<JSONObject> selected_sensors, String base_url, String repository, String model, String sensorName) {
+        String urn, response, urlString = null;
 
         for (JSONObject sensor : selected_sensors) {
             if (sensor.get("name").equals(sensorName)) {
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
-                urlString = base_url + "bkd/aggr/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json"; //&_=1672309152628
+                urlString = base_url + "bkd/aggr_exp/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json";
                 //replace spaces by "%20" to avoid 400 Bad Request
                 if(urlString.contains(" "))
                     urlString = urlString.replace(" ", "%20");
                 break;
             }
-        }        return urlString;
+        }
+
+        try {
+            Request request = Request.Get(urlString)
+                    .connectTimeout(240000)
+                    .socketTimeout(240000)
+                    .setHeader("Content-Type", "application/json")
+                    .setHeader("connection","keep-alive");
+
+            if (this.accessToken != null && !this.accessToken.equals("")) {
+                request.setHeader("Authorization", "Bearer " + this.accessToken);
+            }
+            response = request
+                    .execute().returnContent().toString();
+            // TODO sleep
+            if (response == null)
+                throw new ParseException("Could not receive Data from file: " + urlString);
+
+        } catch (Exception e) {
+            logger.error("Error while fetching data from URL: " + urlString, e);
+            throw new ParseException("Error while fetching data from URL: " + urlString);
+        }
+        return new JSONObject(response);
     }
 
+
+    private String getUrl(JSONObject data_info, String base_url) {
+        String urlString = base_url + "dat/file/data/" + data_info.get("source") + "/" + data_info.get("title") + "/" + this.accessToken;
+        //replace spaces by "%20" to avoid 400 Bad Request
+        if(urlString.contains(" "))
+            urlString = urlString.replace(" ", "%20");
+         return urlString;
+    }
 }
