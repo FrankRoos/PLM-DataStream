@@ -154,8 +154,8 @@ public class HttpStreamProtocol extends PullProtocol {
         InputStream result;
         try {
             Request request = Request.Get(url)
-                    .connectTimeout(1000)
-                    .socketTimeout(100000)
+                    .connectTimeout(240000)
+                    .socketTimeout(240000)
                     .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
@@ -181,7 +181,7 @@ public class HttpStreamProtocol extends PullProtocol {
         try {
             Request request = Request.Post(urlString)
                     .connectTimeout(1000)
-                    .socketTimeout(100000)
+                    .socketTimeout(240000)
                     .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
@@ -214,7 +214,7 @@ public class HttpStreamProtocol extends PullProtocol {
         try {
             Request request = Request.Get(urlString)
                     .connectTimeout(1000)
-                    .socketTimeout(100000)
+                    .socketTimeout(240000)
                     .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
@@ -282,7 +282,7 @@ public class HttpStreamProtocol extends PullProtocol {
         for (JSONObject sensor : selected_sensors) {
             if (sensor.get("name").equals(sensorName)) {
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
-                urlString = base_url + "bkd/aggr/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json"; //&_=1672309152628
+                urlString = base_url + "bkd/aggr_exp_dt/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json";
                 //replace spaces by "%20" to avoid 400 Bad Request
                 if(urlString.contains(" "))
                     urlString = urlString.replace(" ", "%20");
