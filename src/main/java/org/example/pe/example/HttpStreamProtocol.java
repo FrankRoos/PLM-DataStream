@@ -40,6 +40,8 @@ import org.apache.streampipes.sdk.helpers.Labels;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 import java.io.InputStream;
 
@@ -151,24 +153,31 @@ public class HttpStreamProtocol extends PullProtocol {
 
     @Override
     public InputStream getDataFromEndpoint() throws ParseException {
-        InputStream result;
+        InputStream result = null;
         try {
-            Request request = Request.Get(url)
-                    .connectTimeout(240000)
-                    .socketTimeout(240000)
-                    .setHeader("Content-Type", "application/json");
+            // Set the URL of the API endpoint
+            URL url = new URL(this.url);
+            // Open a connection to the API endpoint
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "application/json");
+            // Set the token in the HTTP header of the request
+            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+            connection.setRequestProperty("transfer-encoding", "chunked");
+            connection.setRequestProperty("connection", "keep-alive");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(240000);
+            connection.setReadTimeout(240000);
+            // Send the GET request to the API endpoint
+            connection.connect();
 
-            if (this.accessToken != null && !this.accessToken.equals("")) {
-                request.setHeader("Authorization", "Bearer " + this.accessToken);
-            }
-            result = request
-                    .execute().returnContent().asStream();
+            result = connection.getInputStream();
+
         } catch (Exception e) {
-            logger.error("Error while fetching data from URL: " + url, e);
-            throw new ParseException("Error while fetching data from URL: " + url);
+            // Handle any exceptions that occur
+            e.printStackTrace();
         }
-        if (result == null)
-            throw new ParseException("Could not receive Data from file: " + url);
         return result;
     }
 
