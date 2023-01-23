@@ -1,5 +1,5 @@
-org.example.pe.example.datasource.title=PLM Data Stream
-org.example.pe.example.datasource.description=Continuously fetched events from an HTTP REST endpoint.
+org.gft.adapters.plm.title=PLM Data Stream
+org.gft.adapters.plm.description=Continuously fetched events from an HTTP REST endpoint.
 
 url.title=BASE URL
 url.description=Example: http(s)://test-server.com/api/

@@ -68,7 +68,7 @@
                             <goal>repackage</goal>
                         </goals>
                         <configuration>
-                            <mainClass>org.example.Init</mainClass>
+                            <mainClass>org.gft.Init</mainClass>
                         </configuration>
                     </execution>
                 </executions>

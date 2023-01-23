@@ -1,4 +1,4 @@
-package org.example.pe.example;
+package org.gft.adapters.plm;
 
 import org.apache.streampipes.connect.SendToPipeline;
 import org.apache.streampipes.connect.adapter.model.generic.Protocol;

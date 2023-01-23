@@ -16,7 +16,7 @@
  *
  */
 
-package org.example.pe.example;
+package org.gft.adapters.plm;
 
 import org.apache.http.client.fluent.Request;
 import org.apache.streampipes.connect.api.IParser;
@@ -47,7 +47,7 @@ import java.io.InputStream;
 
 public class HttpStreamProtocol extends PullProtocol {
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
-    public static final String ID = "org.example.pe.example.datasource";
+    public static final String ID = "org.gft.adapters.plm";
     private static final String USERNAME_PROPERTY ="username";
     private static final String PASSWORD_PROPERTY ="password";
     private static final String USER_GROUP_PROPERTY ="group";
