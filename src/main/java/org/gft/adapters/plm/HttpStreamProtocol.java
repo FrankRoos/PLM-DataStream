@@ -45,7 +45,7 @@ import java.util.*;
 import java.io.InputStream;
 
 public class HttpStreamProtocol extends PullProtocol {
-    private static final long interval = 420;
+    private static final long interval = 2;
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
 
