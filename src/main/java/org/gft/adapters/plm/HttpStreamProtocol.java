@@ -45,14 +45,12 @@ import java.util.*;
 import java.io.InputStream;
 
 public class HttpStreamProtocol extends PullProtocol {
-    private static final long interval = 420;
+    private static final long interval = 2;
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
-
     HttpConfig config;
     private String accessToken = null;
     List<JSONObject> selected_sensors = new ArrayList<>();
-
 
     public HttpStreamProtocol() {
     }
@@ -83,7 +81,7 @@ public class HttpStreamProtocol extends PullProtocol {
                 .requiredTextParameter(HttpUtils.getModelLabel())
                 .requiredTextParameter(HttpUtils.getSignalLabel())
                 .requiredTextParameter(HttpUtils.getLowestLabel())
-                .requiredTextParameter(HttpUtils.getHighestLabel(), "CurrentDateTime")
+                .requiredTextParameter(HttpUtils.getHighestLabel())
                 .build();
     }
 
@@ -119,7 +117,6 @@ public class HttpStreamProtocol extends PullProtocol {
         return result;
     }
 
-
     @Override
     public String getId() {
         return ID;
@@ -130,6 +127,10 @@ public class HttpStreamProtocol extends PullProtocol {
         InputStream result = null;
         if (this.accessToken == null) { this.accessToken = login(); }
         String urlString = getUrl(this.selected_sensors);
+
+        if(config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0){
+            return null;
+        }
 
         try {
             // Set the URL of the API endpoint
@@ -268,13 +269,8 @@ public class HttpStreamProtocol extends PullProtocol {
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
 
                 try{
-                    if(config.getHighestDate().equals("CurrentDateTime")){
-                        urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
-                                + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.CurrentDateTime();
-                    }else {
-                        urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
-                                + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.getHighestDate();
-                    }
+                    urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
+                            + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.NextDateTime();
                 }catch (java.text.ParseException e){
                     e.printStackTrace();
                 }
