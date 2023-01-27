@@ -16,10 +16,11 @@
  *
  */
 
-package org.example.pe.example;
+package org.gft.adapters.plm;
 
 import org.apache.http.client.fluent.Request;
 import org.apache.streampipes.connect.api.IParser;
+import org.apache.streampipes.sdk.extractor.StaticPropertyExtractor;
 import org.apache.streampipes.sdk.helpers.Locales;
 import org.apache.streampipes.sdk.utils.Assets;
 import org.slf4j.Logger;
@@ -28,72 +29,46 @@ import org.apache.streampipes.connect.api.exception.ParseException;
 import org.apache.streampipes.connect.adapter.guess.SchemaGuesser;
 import org.apache.streampipes.connect.api.IFormat;
 import org.apache.streampipes.connect.adapter.model.generic.Protocol;
-import org.apache.streampipes.connect.adapter.sdk.ParameterExtractor;
 import org.apache.streampipes.model.AdapterType;
 import org.apache.streampipes.model.connect.grounding.ProtocolDescription;
 import org.apache.streampipes.model.connect.guess.GuessSchema;
 import org.apache.streampipes.model.schema.EventSchema;
 import org.apache.streampipes.sdk.builder.adapter.ProtocolDescriptionBuilder;
 import org.apache.streampipes.sdk.helpers.AdapterSourceType;
-import org.apache.streampipes.sdk.helpers.Labels;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 import java.io.InputStream;
 
 public class HttpStreamProtocol extends PullProtocol {
+    private static final long interval = 420;
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
-    public static final String ID = "org.example.pe.example.datasource";
-    private static final String USERNAME_PROPERTY ="username";
-    private static final String PASSWORD_PROPERTY ="password";
-    private static final String USER_GROUP_PROPERTY ="group";
-    private static final String BASE_URL_PROPERTY ="url";
-    private static final String REPOSITORY_PROPERTY ="repository";
-    private static final String MODEL_PROPERTY = "model";
-    private static final String SENSOR_PROPERTY = "sensor";
-    private static final String INTERVAL_PROPERTY ="interval";
-    private String url;
-    private String accessToken;
+    public static final String ID = "org.gft.adapters.plm";
+
+    HttpConfig config;
+    private String accessToken = null;
     List<JSONObject> selected_sensors = new ArrayList<>();
-    JSONObject data_info = new JSONObject();
+
 
     public HttpStreamProtocol() {
     }
 
-    public HttpStreamProtocol(IParser parser, IFormat format, String username, String password, String group, String base_url, String repository, String model, String sensorName, long interval) {
+    public HttpStreamProtocol(IParser parser, IFormat format, HttpConfig config) {
         super(parser, format, interval);
-        this.accessToken = login(username, password, group, base_url);
-        this.selected_sensors = getSelectedSensors(base_url, repository, model);
-        this.data_info = getDataInfo(this.selected_sensors, base_url, repository, model, sensorName);
-        this.url = getUrl(data_info, base_url);
+        this.config =  config;
+        this.accessToken = login();
+        this.selected_sensors = getSelectedSensors();
     }
-
-
 
     @Override
     public Protocol getInstance(ProtocolDescription protocolDescription, IParser parser, IFormat format) {
-        ParameterExtractor extractor = new ParameterExtractor(protocolDescription.getConfig());
-
-        String user = extractor.singleValue(USERNAME_PROPERTY);
-        String pass = extractor.singleValue(PASSWORD_PROPERTY);
-        String group = extractor.singleValue(USER_GROUP_PROPERTY);
-        String base_url = extractor.singleValue(BASE_URL_PROPERTY);
-        String repository = extractor.singleValue(REPOSITORY_PROPERTY);
-        String model = extractor.singleValue(MODEL_PROPERTY);
-        String sensor = extractor.singleValue(SENSOR_PROPERTY);
-
-        try {
-            long intervalProperty = Long.parseLong(extractor.singleValue(INTERVAL_PROPERTY));
-            // TODO change access token to an optional parameter
-            //  String accessToken = extractor.singleValue(ACCESS_TOKEN_PROPERTY);
-            return new HttpStreamProtocol(parser, format, user, pass, group, base_url, repository, model, sensor, intervalProperty);
-        } catch (NumberFormatException e) {
-            logger.error("Could not parse" + extractor.singleValue(INTERVAL_PROPERTY) + "to int");
-            return null;
-        }
-
+        StaticPropertyExtractor extractor = StaticPropertyExtractor.from(protocolDescription.getConfig(),  new ArrayList<>());
+        HttpConfig config = HttpUtils.getConfig(extractor);
+        return new HttpStreamProtocol(parser, format, config);
     }
 
     @Override
@@ -103,14 +78,12 @@ public class HttpStreamProtocol extends PullProtocol {
                 .withLocales(Locales.EN)
                 .sourceType(AdapterSourceType.STREAM)
                 .category(AdapterType.Generic)
-                .requiredTextParameter(Labels.withId(USERNAME_PROPERTY))
-                .requiredTextParameter(Labels.withId(PASSWORD_PROPERTY))
-                .requiredTextParameter(Labels.withId(USER_GROUP_PROPERTY), "sdai-group")
-                .requiredTextParameter(Labels.withId(BASE_URL_PROPERTY), "https://kyklos.jotne.com/EDMtruePLM/api/")
-                .requiredTextParameter(Labels.withId(REPOSITORY_PROPERTY), "TruePLMprojectsRep")
-                .requiredTextParameter(Labels.withId(MODEL_PROPERTY))
-                .requiredTextParameter(Labels.withId(SENSOR_PROPERTY))
-                .requiredIntegerParameter(Labels.withId(INTERVAL_PROPERTY))
+                .requiredTextParameter(HttpUtils.getUsernameLabel())
+                .requiredTextParameter(HttpUtils.getPasswordLabel())
+                .requiredTextParameter(HttpUtils.getModelLabel())
+                .requiredTextParameter(HttpUtils.getSignalLabel())
+                .requiredTextParameter(HttpUtils.getLowestLabel())
+                .requiredTextParameter(HttpUtils.getHighestLabel(), "CurrentDateTime")
                 .build();
     }
 
@@ -154,46 +127,50 @@ public class HttpStreamProtocol extends PullProtocol {
 
     @Override
     public InputStream getDataFromEndpoint() throws ParseException {
-        InputStream result;
-        try {
-            Request request = Request.Get(this.url)
-                    .connectTimeout(60000)
-                    .socketTimeout(180000)
-                    .setHeader("Content-Type", "application/json")
-                    .setHeader("connection","keep-alive");
+        InputStream result = null;
+        if (this.accessToken == null) { this.accessToken = login(); }
+        String urlString = getUrl(this.selected_sensors);
 
-            if (this.accessToken != null && !this.accessToken.equals("")) {
-                request.setHeader("Authorization", "Bearer " + this.accessToken);
-            }
-            result = request
-                    .execute().returnContent().asStream();
+        try {
+            // Set the URL of the API endpoint
+            URL url = new URL(urlString);
+            // Open a connection to the API endpoint
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "application/json");
+            // Set the token in the HTTP header of the request
+            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+            connection.setRequestProperty("transfer-encoding", "chunked");
+            connection.setRequestProperty("connection", "keep-alive");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(240000);
+            connection.setReadTimeout(240000);
+            // Send the GET request to the API endpoint
+            connection.connect();
+
+            this.accessToken = null;
+            result = connection.getInputStream();
 
         } catch (Exception e) {
-            logger.error("Error while fetching data from URL: " + url, e);
-            throw new ParseException("Error while fetching data from URL: " + url);
+            // Handle any exceptions that occur
+            e.printStackTrace();
         }
-        if (result == null)
-            throw new ParseException("Could not receive Data from file: " + url);
         return result;
     }
 
-    private String login(String user, String pass, String group, String base_url) throws ParseException{
+    private String login() throws ParseException{
         String urlString, response, token;
-        urlString = base_url + "admin/token?group=" + group + "&pass=" + pass + "&user=" + user;
+        urlString = config.getBaseUrl() + "admin/token?group=" + config.getGroup() + "&pass=" + config.getPassword() + "&user=" + config.getUsername();
         if(urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
         try {
             Request request = Request.Post(urlString)
-                    .connectTimeout(240000)
-                    .socketTimeout(240000)
-                    .setHeader("Content-Type", "application/json")
-                    .setHeader("connection","keep-alive");
+                    .connectTimeout(120000)
+                    .socketTimeout(120000)
+                    .setHeader("Content-Type", "application/json");
 
-
-            if (this.accessToken != null && !this.accessToken.equals("")) {
-                request.setHeader("Authorization", "Bearer " + this.accessToken);
-            }
             response = request
                     .execute().returnContent().toString();
             if (response == null)
@@ -211,19 +188,18 @@ public class HttpStreamProtocol extends PullProtocol {
     }
 
 
-    private JSONArray sensorsList(String base_url, String repository, String model) throws ParseException{
+    private JSONArray sensorsList() throws ParseException{
         String response, urlString;
         // Set the URL of the API endpoint
-        urlString = base_url + "bkd/q_search/" + repository + "/" + model + "/" + this.accessToken + "?case_sens=false&domains=PROPERTY&folder_only=false&pattern=*";
+        urlString = config.getBaseUrl() + "bkd/q_search/" + config.getRepository() + "/" + config.getModel() + "/" + this.accessToken + "?case_sens=false&domains=PROPERTY&folder_only=false&pattern=*";
         if(urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
-        try{
+        try {
             Request request = Request.Get(urlString)
-                    .connectTimeout(240000)
-                    .socketTimeout(2400000)
-                    .setHeader("Content-Type", "application/json")
-                    .setHeader("connection","keep-alive");
+                    .connectTimeout(1000)
+                    .socketTimeout(240000)
+                    .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
                 request.setHeader("Authorization", "Bearer " + this.accessToken);
@@ -249,12 +225,12 @@ public class HttpStreamProtocol extends PullProtocol {
                 break; }}        return isNumber;
     }
 
-    private List<JSONObject> getSelectedSensors(String base_url, String repository, String model){
+    private List<JSONObject> getSelectedSensors(){
         JSONArray sensor_properties;
         JSONObject sensor, element_info, json_selected_sensor;
         String string_selected_sensor;
         List<JSONObject> selected_sensors = new ArrayList<>();
-        JSONArray sensors = sensorsList(base_url, repository, model);
+        JSONArray sensors = sensorsList();
 
         for (int i = 0; i < sensors.length(); i++) {
             sensor = sensors.getJSONObject(i);
@@ -284,49 +260,31 @@ public class HttpStreamProtocol extends PullProtocol {
         return selected_sensors;
     }
 
-    private JSONObject getDataInfo(List<JSONObject> selected_sensors, String base_url, String repository, String model, String sensorName) {
-        String urn, response, urlString = null;
+    private String getUrl(List<JSONObject> selected_sensors) {
+        String urn, urlString = null;
 
         for (JSONObject sensor : selected_sensors) {
-            if (sensor.get("name").equals(sensorName)) {
+            if (sensor.get("name").equals(config.getSignal())) {
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
-                urlString = base_url + "bkd/aggr_exp/" + repository + "/" + model + "/" + sensor.get("id") + "/" + urn + "/" + this.accessToken + "/"+"?format=json";
+
+                try{
+                    if(config.getHighestDate().equals("CurrentDateTime")){
+                        urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
+                                + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.CurrentDateTime();
+                    }else {
+                        urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
+                                + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.getHighestDate();
+                    }
+                }catch (java.text.ParseException e){
+                    e.printStackTrace();
+                }
                 //replace spaces by "%20" to avoid 400 Bad Request
+                assert urlString != null;
                 if(urlString.contains(" "))
                     urlString = urlString.replace(" ", "%20");
                 break;
             }
-        }
-
-        try {
-            Request request = Request.Get(urlString)
-                    .connectTimeout(240000)
-                    .socketTimeout(240000)
-                    .setHeader("Content-Type", "application/json")
-                    .setHeader("connection","keep-alive");
-
-            if (this.accessToken != null && !this.accessToken.equals("")) {
-                request.setHeader("Authorization", "Bearer " + this.accessToken);
-            }
-            response = request
-                    .execute().returnContent().toString();
-            // TODO sleep
-            if (response == null)
-                throw new ParseException("Could not receive Data from file: " + urlString);
-
-        } catch (Exception e) {
-            logger.error("Error while fetching data from URL: " + urlString, e);
-            throw new ParseException("Error while fetching data from URL: " + urlString);
-        }
-        return new JSONObject(response);
+        }        return urlString;
     }
 
-
-    private String getUrl(JSONObject data_info, String base_url) {
-        String urlString = base_url + "dat/file/data/" + data_info.get("source") + "/" + data_info.get("title") + "/" + this.accessToken;
-        //replace spaces by "%20" to avoid 400 Bad Request
-        if(urlString.contains(" "))
-            urlString = urlString.replace(" ", "%20");
-         return urlString;
-    }
 }
