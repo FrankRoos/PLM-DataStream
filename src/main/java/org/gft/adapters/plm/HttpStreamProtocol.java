@@ -83,7 +83,7 @@ public class HttpStreamProtocol extends PullProtocol {
                 .requiredTextParameter(HttpUtils.getModelLabel())
                 .requiredTextParameter(HttpUtils.getSignalLabel())
                 .requiredTextParameter(HttpUtils.getLowestLabel())
-                .requiredTextParameter(HttpUtils.getHighestLabel(), "CurrentDateTime")
+                .requiredTextParameter(HttpUtils.getHighestLabel())
                 .build();
     }
 
@@ -130,7 +130,7 @@ public class HttpStreamProtocol extends PullProtocol {
         if (this.accessToken == null) { this.accessToken = login(); }
         String urlString = getUrl(this.selected_sensors);
 
-        if(config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0 && !config.getHighestDate().equals("CurrentDateTime")){
+        if(config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0){
             return null;
         }
 

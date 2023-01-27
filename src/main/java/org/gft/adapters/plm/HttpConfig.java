@@ -70,16 +70,9 @@ public class HttpConfig {
         return timestamp;
     }
 
-    public String CurrentDateTime(){
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        LocalDateTime now = LocalDateTime.now();
-        System.out.println("Current Time = "+dtf.format(now));
-        return getMillis(dtf.format(now));
-    }
-
     public String NextDateTime() throws java.text.ParseException {
         String date = " ";
-        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0 && !this.highest_date.equals("CurrentDateTime")){
+        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0){
             return getMillis(this.highest_date);
         }
         try{
@@ -99,7 +92,7 @@ public class HttpConfig {
 
     public String LastDateTime() throws java.text.ParseException {
         String date = " ";
-        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0 && !this.highest_date.equals("CurrentDateTime")){
+        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0){
             return getMillis(this.lowest_date);
         }
         try{
