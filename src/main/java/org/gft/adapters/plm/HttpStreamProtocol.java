@@ -48,11 +48,9 @@ public class HttpStreamProtocol extends PullProtocol {
     private static final long interval = 2;
     Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
-
     HttpConfig config;
     private String accessToken = null;
     List<JSONObject> selected_sensors = new ArrayList<>();
-
 
     public HttpStreamProtocol() {
     }

@@ -6,7 +6,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 
@@ -54,9 +53,6 @@ public class HttpConfig {
      public String getLowestDate(){
         return getMillis(lowest_date);
     }
-    /*public void setLowestDate(String old_date){
-        this.lowest_date = old_date;
-    }*/
 
     private String getMillis(String date){
         String timestamp = null;
