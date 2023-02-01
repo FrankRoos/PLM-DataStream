@@ -1,6 +1,5 @@
 package org.gft.adapters.plm;
 
-
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -8,8 +7,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 
-
-public class HttpConfig {
+public class PLMHttpConfig {
 
     private final String model;
     private final String username;
@@ -21,7 +19,7 @@ public class HttpConfig {
     DateFormat date_format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 
-    public HttpConfig(String username, String password, String model, String signal_name, String lowest_date, String highest_date) {
+    public PLMHttpConfig(String username, String password, String model, String signal_name, String lowest_date, String highest_date) {
         this.username = username;
         this.password = password;
         this.model = model;
@@ -57,8 +55,7 @@ public class HttpConfig {
     private String getMillis(String date){
         String timestamp = null;
         try{
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            Date myDate = dateFormat.parse(date);
+            Date myDate = date_format.parse(date);
            timestamp = String.valueOf(myDate.getTime());
         }catch (ParseException e){
             e.printStackTrace();
@@ -82,7 +79,7 @@ public class HttpConfig {
             e.printStackTrace();
         }
         // convert LocalDateTime to date
-        System.out.println("Next Time = "+date);
+        System.out.println("Next Time = "+date+ " "+getMillis(date));
         return getMillis(date);
     }
 
@@ -91,9 +88,10 @@ public class HttpConfig {
         if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0){
             return getMillis(this.lowest_date);
         }
+
         try{
             Date myDate = date_format.parse(this.lowest_date);
-            // convert date to localdatetime
+            // convert date to localdatetimeq
             LocalDateTime local_date_time = myDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
             if(this.first_time){
                 this.first_time = false;
@@ -107,7 +105,7 @@ public class HttpConfig {
             e.printStackTrace();
         }
         // convert LocalDateTime to date
-        System.out.println("Precedent Time = "+date);
+        System.out.println("Precedent Time = "+date+ " "+getMillis(date));
         return getMillis(date);
     }
 }

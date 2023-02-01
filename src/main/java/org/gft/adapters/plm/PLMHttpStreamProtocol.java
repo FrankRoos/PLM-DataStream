@@ -19,54 +19,48 @@
 package org.gft.adapters.plm;
 
 import org.apache.http.client.fluent.Request;
-import org.apache.streampipes.connect.api.IParser;
-import org.apache.streampipes.sdk.extractor.StaticPropertyExtractor;
-import org.apache.streampipes.sdk.helpers.Locales;
-import org.apache.streampipes.sdk.utils.Assets;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.streampipes.connect.api.exception.ParseException;
 import org.apache.streampipes.connect.adapter.guess.SchemaGuesser;
-import org.apache.streampipes.connect.api.IFormat;
 import org.apache.streampipes.connect.adapter.model.generic.Protocol;
+import org.apache.streampipes.connect.api.IFormat;
+import org.apache.streampipes.connect.api.IParser;
+import org.apache.streampipes.connect.api.exception.ParseException;
 import org.apache.streampipes.model.AdapterType;
 import org.apache.streampipes.model.connect.grounding.ProtocolDescription;
 import org.apache.streampipes.model.connect.guess.GuessSchema;
 import org.apache.streampipes.model.schema.EventSchema;
 import org.apache.streampipes.sdk.builder.adapter.ProtocolDescriptionBuilder;
+import org.apache.streampipes.sdk.extractor.StaticPropertyExtractor;
 import org.apache.streampipes.sdk.helpers.AdapterSourceType;
-
+import org.apache.streampipes.sdk.helpers.Locales;
+import org.apache.streampipes.sdk.utils.Assets;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.*;
-import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-public class HttpStreamProtocol extends PullProtocol {
-    private static final long interval = 2;
-    Logger logger = LoggerFactory.getLogger(HttpStreamProtocol.class);
+public class PLMHttpStreamProtocol extends PLMPullProtocol {
+    private static final long interval = 10;
+    Logger logger = LoggerFactory.getLogger(PLMHttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
-    HttpConfig config;
+    PLMHttpConfig config;
     private String accessToken = null;
     List<JSONObject> selected_sensors = new ArrayList<>();
 
-    public HttpStreamProtocol() {
+    public PLMHttpStreamProtocol() {
     }
 
-    public HttpStreamProtocol(IParser parser, IFormat format, HttpConfig config) {
+    public PLMHttpStreamProtocol(IParser parser, IFormat format, PLMHttpConfig config) {
         super(parser, format, interval);
-        this.config =  config;
+        this.config = config;
         this.accessToken = login();
         this.selected_sensors = getSelectedSensors();
-    }
-
-    @Override
-    public Protocol getInstance(ProtocolDescription protocolDescription, IParser parser, IFormat format) {
-        StaticPropertyExtractor extractor = StaticPropertyExtractor.from(protocolDescription.getConfig(),  new ArrayList<>());
-        HttpConfig config = HttpUtils.getConfig(extractor);
-        return new HttpStreamProtocol(parser, format, config);
     }
 
     @Override
@@ -76,44 +70,61 @@ public class HttpStreamProtocol extends PullProtocol {
                 .withLocales(Locales.EN)
                 .sourceType(AdapterSourceType.STREAM)
                 .category(AdapterType.Generic)
-                .requiredTextParameter(HttpUtils.getUsernameLabel())
-                .requiredTextParameter(HttpUtils.getPasswordLabel())
-                .requiredTextParameter(HttpUtils.getModelLabel())
-                .requiredTextParameter(HttpUtils.getSignalLabel())
-                .requiredTextParameter(HttpUtils.getLowestLabel())
-                .requiredTextParameter(HttpUtils.getHighestLabel())
+                .requiredTextParameter(PLMHttpUtils.getUsernameLabel())
+                .requiredSecret(PLMHttpUtils.getPasswordLabel())
+                .requiredTextParameter(PLMHttpUtils.getModelLabel())
+                .requiredTextParameter(PLMHttpUtils.getSignalLabel())
+                .requiredTextParameter(PLMHttpUtils.getLowestLabel())
+                .requiredTextParameter(PLMHttpUtils.getHighestLabel())
                 .build();
+    }
+
+
+    @Override
+    public Protocol getInstance(ProtocolDescription protocolDescription, IParser parser, IFormat format) {
+        StaticPropertyExtractor extractor = StaticPropertyExtractor.from(protocolDescription.getConfig(), new ArrayList<>());
+        PLMHttpConfig config = PLMHttpUtils.getConfig(extractor);
+        return new PLMHttpStreamProtocol(parser, format, config);
     }
 
     @Override
     public GuessSchema getGuessSchema() throws ParseException {
-        int n = 8;
-        InputStream dataInputStream = getDataFromEndpoint();
+        int n = 2;
+
+        InputStream dataInputStream;
+        dataInputStream = getDataFromEndpoint();
 
         List<byte[]> dataByte = parser.parseNEvents(dataInputStream, n);
         if (dataByte.size() < n) {
-            logger.error("Error in HttpStreamProtocolPLM! Required: " + n + " elements but the resource just had: " +
+            logger.error("Error in PLMHttpStreamProtocol! Required: " + n + " elements but the resource just had: " +
                     dataByte.size());
+
             dataByte.addAll(dataByte);
         }
-        EventSchema eventSchema= parser.getEventSchema(dataByte);
+        EventSchema eventSchema = parser.getEventSchema(dataByte);
+
         return SchemaGuesser.guessSchema(eventSchema);
     }
 
     @Override
     public List<Map<String, Object>> getNElements(int n) throws ParseException {
         List<Map<String, Object>> result = new ArrayList<>();
-        InputStream dataInputStream = getDataFromEndpoint();
+
+        InputStream dataInputStream;
+        dataInputStream = getDataFromEndpoint();
+
         List<byte[]> dataByte = parser.parseNEvents(dataInputStream, n);
 
         // Check that result size is n. Currently just an error is logged. Maybe change to an exception
         if (dataByte.size() < n) {
-            logger.error("Error in HttpStreamProtocolPLM! User required: " + n + " elements but the resource just had: " +
+            logger.error("Error in PLMHttpStreamProtocol! User required: " + n + " elements but the resource just had: " +
                     dataByte.size());
         }
+
         for (byte[] b : dataByte) {
             result.add(format.parse(b));
         }
+
         return result;
     }
 
@@ -125,12 +136,17 @@ public class HttpStreamProtocol extends PullProtocol {
     @Override
     public InputStream getDataFromEndpoint() throws ParseException {
         InputStream result = null;
-        if (this.accessToken == null) { this.accessToken = login(); }
+        if (this.accessToken == null) {
+            this.accessToken = login();
+        }
         String urlString = getUrl(this.selected_sensors);
 
-        if(config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0){
+        if (config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0) {
             return null;
         }
+
+        System.out.println(urlString);
+        System.out.println(this.accessToken);
 
         try {
             // Set the URL of the API endpoint
@@ -138,19 +154,21 @@ public class HttpStreamProtocol extends PullProtocol {
             // Open a connection to the API endpoint
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("content-type", "application/json");
             // Set the token in the HTTP header of the request
-            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+            connection.setRequestProperty("Authorization", "Bearer " + this.accessToken);
             connection.setRequestProperty("transfer-encoding", "chunked");
             connection.setRequestProperty("connection", "keep-alive");
-            connection.setDoOutput(true);
-            connection.setConnectTimeout(240000);
-            connection.setReadTimeout(240000);
+            //connection.setDoOutput(true);
+            connection.setConnectTimeout(60000);
+            connection.setReadTimeout(120000);
             // Send the GET request to the API endpoint
             connection.connect();
 
-            this.accessToken = null;
+            if (this.accessToken != null) {
+                this.accessToken = null;
+            }
+
             result = connection.getInputStream();
 
         } catch (Exception e) {
@@ -160,10 +178,10 @@ public class HttpStreamProtocol extends PullProtocol {
         return result;
     }
 
-    private String login() throws ParseException{
+    private String login() throws ParseException {
         String urlString, response, token;
         urlString = config.getBaseUrl() + "admin/token?group=" + config.getGroup() + "&pass=" + config.getPassword() + "&user=" + config.getUsername();
-        if(urlString.contains(" "))
+        if (urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
         try {
@@ -189,11 +207,11 @@ public class HttpStreamProtocol extends PullProtocol {
     }
 
 
-    private JSONArray sensorsList() throws ParseException{
+    private JSONArray sensorsList() throws ParseException {
         String response, urlString;
         // Set the URL of the API endpoint
         urlString = config.getBaseUrl() + "bkd/q_search/" + config.getRepository() + "/" + config.getModel() + "/" + this.accessToken + "?case_sens=false&domains=PROPERTY&folder_only=false&pattern=*";
-        if(urlString.contains(" "))
+        if (urlString.contains(" "))
             urlString = urlString.replace(" ", "%20");
 
         try {
@@ -223,10 +241,13 @@ public class HttpStreamProtocol extends PullProtocol {
             char ch = val_part.charAt(i);
             if (!Character.isDigit(ch)) {
                 isNumber = false;
-                break; }}        return isNumber;
+                break;
+            }
+        }
+        return isNumber;
     }
 
-    private List<JSONObject> getSelectedSensors(){
+    private List<JSONObject> getSelectedSensors() {
         JSONArray sensor_properties;
         JSONObject sensor, element_info, json_selected_sensor;
         String string_selected_sensor;
@@ -239,14 +260,17 @@ public class HttpStreamProtocol extends PullProtocol {
             sensor_properties = element_info.getJSONArray("properties");
             int num_of_property = sensor_properties.length();
 
-            if(num_of_property >1){
+            if (num_of_property > 1) {
                 JSONArray selected_properties = new JSONArray();
-                for(int j = 0; j < num_of_property; j++){
+                for (int j = 0; j < num_of_property; j++) {
                     JSONObject property = sensor_properties.getJSONObject(j);
                     String[] val_parts = property.getString("val").split(" ");
                     boolean number_of_items = checkIfDigit(val_parts[0]);
-                    if(val_parts.length == 2 && val_parts[1].equals("items") && number_of_items){
-                        String json_string = "{\"urn\": \"" + property.get("name") + "\"," + "\"num\": " +
+                    if (val_parts.length == 2 && val_parts[1].equals("items") && number_of_items) {
+                        String urn = property.getString("name");
+                        if (urn.contains(":"))
+                            urn = urn.replace(":", "%3A");
+                        String json_string = "{\"urn\": \"" + urn + "\"," + "\"num\": " +
                                 Integer.parseInt(val_parts[0]) + "}";
                         JSONObject json_object = new JSONObject(json_string);
                         selected_properties.put(json_object);
@@ -263,24 +287,26 @@ public class HttpStreamProtocol extends PullProtocol {
 
     private String getUrl(List<JSONObject> selected_sensors) {
         String urn, urlString = null;
-
         for (JSONObject sensor : selected_sensors) {
             if (sensor.get("name").equals(config.getSignal())) {
                 urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
 
-                try{
+                try {
+                    String first_date = config.LastDateTime();
+                    String second_date = config.NextDateTime();
                     urlString = config.getBaseUrl() + "bkd/aggr_exp_dt/" + config.getRepository() + "/" + config.getModel() + "/" + sensor.get("id") + "/" + urn + "/"
-                            + this.accessToken + "/"+"?format=json"+"&from="+config.LastDateTime()+"&to="+config.NextDateTime();
-                }catch (java.text.ParseException e){
+                            + this.accessToken + "/" + "?format=json" + "&from=" + first_date + "&to=" + second_date;
+                    //replace spaces by "%20" and the two points by %3A to avoid 400 Bad Request
+                    if (urlString.contains(" "))
+                        urlString = urlString.replace(" ", "%20");
+
+                } catch (java.text.ParseException e) {
                     e.printStackTrace();
                 }
-                //replace spaces by "%20" to avoid 400 Bad Request
-                assert urlString != null;
-                if(urlString.contains(" "))
-                    urlString = urlString.replace(" ", "%20");
                 break;
             }
-        }        return urlString;
+        }
+        return urlString;
     }
 
 }

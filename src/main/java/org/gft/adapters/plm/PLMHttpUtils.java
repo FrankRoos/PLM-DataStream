@@ -7,8 +7,9 @@ import org.apache.streampipes.sdk.helpers.Labels;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
-public class HttpUtils {
-    private static final String LENGTH = "length";
+public class PLMHttpUtils {
+
+    //private static final String LENGTH = "length";
     private static final String LOWEST_DATE = "lowest_date";
     private static final String HIGHEST_DATE = "highest_date";
     private static final String SENSOR_SIGNAL = "signal";
@@ -26,7 +27,7 @@ public class HttpUtils {
     }
 
     public static Label getModelLabel() {
-        return Labels.withId(LENGTH);
+        return Labels.withId(MODEL_NAME);
     }
 
     public static Label getSignalLabel() {
@@ -41,7 +42,7 @@ public class HttpUtils {
         return Labels.withId(HIGHEST_DATE);
     }
 
-    public static HttpConfig getConfig(StaticPropertyExtractor extractor) {
+    public static PLMHttpConfig getConfig(StaticPropertyExtractor extractor) {
 
         String username = extractor.singleValueParameter(USERNAME_KEY, String.class).trim();
         String password = extractor.secretValue(PASSWORD_KEY);
@@ -66,7 +67,7 @@ public class HttpUtils {
             e.printStackTrace();
         }
 
-        return new HttpConfig(username, password, model, signal_name, lowest_date, highest_date);
+        return new PLMHttpConfig(username, password, model, signal_name, lowest_date, highest_date);
     }
 
 }

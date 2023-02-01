@@ -12,19 +12,19 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStream;
 import java.util.concurrent.*;
 
-public abstract class PullProtocol extends Protocol {
+public abstract class PLMPullProtocol extends Protocol {
 
     private ScheduledExecutorService scheduler;
 
-    private final Logger logger = LoggerFactory.getLogger(PullProtocol.class);
+    private final Logger logger = LoggerFactory.getLogger(PLMPullProtocol.class);
 
     private long interval;
 
 
-    public PullProtocol() {
+    public PLMPullProtocol() {
     }
 
-    public PullProtocol(IParser parser, IFormat format, long interval) {
+    public PLMPullProtocol(IParser parser, IFormat format, long interval) {
         super(parser, format);
         this.interval = interval;
     }
@@ -53,6 +53,8 @@ public abstract class PullProtocol extends Protocol {
                 }
             } catch (ParseException e) {
                 logger.error("Error while parsing: " + e.getMessage());
+            } catch (java.text.ParseException e) {
+                throw new RuntimeException(e);
             }
 
 
@@ -72,5 +74,5 @@ public abstract class PullProtocol extends Protocol {
         scheduler.shutdownNow();
     }
 
-    abstract InputStream getDataFromEndpoint() throws ParseException;
+    abstract InputStream getDataFromEndpoint() throws ParseException, java.text.ParseException;
 }
