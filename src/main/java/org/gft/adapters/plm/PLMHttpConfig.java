@@ -78,8 +78,6 @@ public class PLMHttpConfig {
         }catch (ParseException e){
             e.printStackTrace();
         }
-        // convert LocalDateTime to date
-        System.out.println("Next Time = "+date+ " "+getMillis(date));
         return getMillis(date);
     }
 
@@ -104,8 +102,6 @@ public class PLMHttpConfig {
         }catch (ParseException e){
             e.printStackTrace();
         }
-        // convert LocalDateTime to date
-        System.out.println("Precedent Time = "+date+ " "+getMillis(date));
         return getMillis(date);
     }
 }

@@ -145,9 +145,6 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             return null;
         }
 
-        System.out.println(urlString);
-        System.out.println(this.accessToken);
-
         try {
             // Set the URL of the API endpoint
             URL url = new URL(urlString);
