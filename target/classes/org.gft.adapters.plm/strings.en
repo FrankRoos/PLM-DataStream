@@ -1,5 +1,5 @@
 org.gft.adapters.plm.title=HTTP Stream (PLM KYKLOS)
-org.gft.adapters.plm.description=Continuously fetched events from an HTTP REST endpoint.
+org.gft.adapters.plm.description=Continuously fetched events from an HTTP REST endpoint of the PLM.
 
 username.title=User
 username.description=Username
@@ -8,13 +8,13 @@ password.title=Password
 password.description=User dedicated password
 
 model.title=Model
-model.description=Project Name o Use Case Name
+model.description=Project Name or Use Case Name
 
 lowest_date.title=From - Lowest Date of the Interval
 lowest_date.description=First value of the key for filtering - Example: 2022-07-21 00:00:00 (YYYY-MM-DD HH:mm:ss)
 
 highest_date.title=To - Highest Date of the Interval
-highest_date.description=Last value of the key for filtering - Example: 2022-12-21 00:00:00 (YYYY-MM-DD HH:mm:ss)
+highest_date.description=Last value of the key for filtering - Example: 2022-12-21 00:00:00 (YYYY-MM-DD HH:mm:ss).
 
 signal.title=Signal Name
-signal.description=Insert the name of the sensor signal
+signal.description=The name of the sensor signal

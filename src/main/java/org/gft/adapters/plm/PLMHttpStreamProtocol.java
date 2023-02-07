@@ -46,7 +46,7 @@ import java.util.List;
 import java.util.Map;
 
 public class PLMHttpStreamProtocol extends PLMPullProtocol {
-    private static final long interval = 1;
+    private static final long interval = 5;
     Logger logger = LoggerFactory.getLogger(PLMHttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
     PLMHttpConfig config;
@@ -142,13 +142,10 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
         String urlString = getUrl(this.selected_sensors);
 
         if (config.getLowestDate().compareToIgnoreCase(config.getHighestDate()) >= 0) {
-            logger.error("Adapter Stopped: there is not anymore data to retrieve in the time interval!!!");
-            logger.error("Stop Adapter on the User Interface!!!");
+            logger.warn("Adapter Stopped: there is not anymore data to retrieve in the time interval!!!");
+            logger.warn("Stop Adapter on the User Interface!!!");
             stop();
         }
-
-        System.out.println(urlString);
-        System.out.println(this.accessToken);
 
         try {
             // Set the URL of the API endpoint
