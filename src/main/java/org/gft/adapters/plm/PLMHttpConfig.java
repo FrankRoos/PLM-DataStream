@@ -72,7 +72,7 @@ public class PLMHttpConfig {
             Date myDate = date_format.parse(this.lowest_date);
             // convert date to localdatetime
             LocalDateTime local_date_time = myDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-            local_date_time = local_date_time.plusMinutes(5);
+            local_date_time = local_date_time.plusMinutes(60);
             Date date_plus = Date.from(local_date_time.atZone(ZoneId.systemDefault()).toInstant());
             date = date_format.format(date_plus);
         }catch (ParseException e){
@@ -94,9 +94,9 @@ public class PLMHttpConfig {
             LocalDateTime local_date_time = myDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
             if(this.first_time){
                 this.first_time = false;
-                local_date_time = local_date_time.minusMinutes(5);
+                local_date_time = local_date_time.minusMinutes(60);
             }
-            local_date_time = local_date_time.plusMinutes(5);// 3.5 hours
+            local_date_time = local_date_time.plusMinutes(60);// 3.5 hours
             Date date_plus = Date.from(local_date_time.atZone(ZoneId.systemDefault()).toInstant());
             date = date_format.format(date_plus);
             this.lowest_date = date;

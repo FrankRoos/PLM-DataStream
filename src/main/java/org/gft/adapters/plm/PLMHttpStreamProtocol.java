@@ -46,7 +46,7 @@ import java.util.List;
 import java.util.Map;
 
 public class PLMHttpStreamProtocol extends PLMPullProtocol {
-    private static final long interval = 5;
+    private static final long interval = 10;
     Logger logger = LoggerFactory.getLogger(PLMHttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
     PLMHttpConfig config;
@@ -159,15 +159,15 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             connection.setRequestProperty("transfer-encoding", "chunked");
             connection.setRequestProperty("connection", "keep-alive");
             //connection.setDoOutput(true);
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(60000);
+            connection.setConnectTimeout(60000);
+            connection.setReadTimeout(120000);
             // Send the GET request to the API endpoint
             connection.connect();
 
             if (this.accessToken != null) {
                 this.accessToken = null;
             }
-
+         
             result = connection.getInputStream();
 
         } catch (Exception e) {
@@ -216,7 +216,7 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
         try {
             Request request = Request.Get(urlString)
                     .connectTimeout(1000)
-                    .socketTimeout(240000)
+                    .socketTimeout(60000)
                     .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
