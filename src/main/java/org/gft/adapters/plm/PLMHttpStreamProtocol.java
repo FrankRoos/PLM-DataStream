@@ -18,6 +18,9 @@
 
 package org.gft.adapters.plm;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.apache.http.client.fluent.Request;
 import org.apache.streampipes.connect.adapter.guess.SchemaGuesser;
 import org.apache.streampipes.connect.adapter.model.generic.Protocol;
@@ -33,8 +36,6 @@ import org.apache.streampipes.sdk.extractor.StaticPropertyExtractor;
 import org.apache.streampipes.sdk.helpers.AdapterSourceType;
 import org.apache.streampipes.sdk.helpers.Locales;
 import org.apache.streampipes.sdk.utils.Assets;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +47,12 @@ import java.util.List;
 import java.util.Map;
 
 public class PLMHttpStreamProtocol extends PLMPullProtocol {
-    private static final long interval = 10;
+    private static final long interval = 300;
     Logger logger = LoggerFactory.getLogger(PLMHttpStreamProtocol.class);
     public static final String ID = "org.gft.adapters.plm";
     PLMHttpConfig config;
     private String accessToken = null;
-    List<JSONObject> selected_sensors = new ArrayList<>();
+    List<JsonObject> selected_sensors = new ArrayList<>();
 
     public PLMHttpStreamProtocol() {
     }
@@ -159,8 +160,8 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             connection.setRequestProperty("transfer-encoding", "chunked");
             connection.setRequestProperty("connection", "keep-alive");
             //connection.setDoOutput(true);
-            connection.setConnectTimeout(60000);
-            connection.setReadTimeout(120000);
+            connection.setConnectTimeout(120000);
+            connection.setReadTimeout(240000);
             // Send the GET request to the API endpoint
             connection.connect();
 
@@ -185,7 +186,7 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
 
         try {
             Request request = Request.Post(urlString)
-                    .connectTimeout(5000)
+                    .connectTimeout(60000)
                     .socketTimeout(60000)
                     .setHeader("Content-Type", "application/json");
 
@@ -194,9 +195,9 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             if (response == null)
                 throw new ParseException("Could not receive Data from file: " + urlString);
             // Parse the JSON string as a JSON object
-            JSONObject json_object = new JSONObject(response);
+            JsonObject json_object = new Gson().fromJson(response, JsonObject.class);
             // Access the data in the JSON object
-            token = json_object.getString("token");
+            token = json_object.get("token").getAsString();
 
         } catch (Exception e) {
             logger.error("Error while fetching data from URL: " + urlString, e);
@@ -206,7 +207,7 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
     }
 
 
-    private JSONArray sensorsList() throws ParseException {
+    private JsonArray sensorsList() throws ParseException {
         String response, urlString;
         // Set the URL of the API endpoint
         urlString = config.getBaseUrl() + "bkd/q_search/" + config.getRepository() + "/" + config.getModel() + "/" + this.accessToken + "?case_sens=false&domains=PROPERTY&folder_only=false&pattern=*";
@@ -215,8 +216,8 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
 
         try {
             Request request = Request.Get(urlString)
-                    .connectTimeout(1000)
-                    .socketTimeout(60000)
+                    .connectTimeout(10000)
+                    .socketTimeout(30000)
                     .setHeader("Content-Type", "application/json");
 
             if (this.accessToken != null && !this.accessToken.equals("")) {
@@ -231,7 +232,7 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             logger.error("Error while fetching data from URL: " + urlString, e);
             throw new ParseException("Error while fetching data from URL: " + urlString);
         }
-        return new JSONArray(response);
+        return new Gson().fromJson(response, JsonArray.class);
     }
 
     private static boolean checkIfDigit(String val_part) {
@@ -246,49 +247,49 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
         return isNumber;
     }
 
-    private List<JSONObject> getSelectedSensors() {
-        JSONArray sensor_properties;
-        JSONObject sensor, element_info, json_selected_sensor;
+    private List<JsonObject> getSelectedSensors() {
+        JsonArray sensor_properties;
+        JsonObject sensor, element_info, json_selected_sensor;
         String string_selected_sensor;
-        List<JSONObject> selected_sensors = new ArrayList<>();
-        JSONArray sensors = sensorsList();
+        List<JsonObject> selected_sensors = new ArrayList<>();
+        JsonArray sensors = sensorsList();
 
-        for (int i = 0; i < sensors.length(); i++) {
-            sensor = sensors.getJSONObject(i);
-            element_info = sensor.getJSONObject("bkdn_elem_info");
-            sensor_properties = element_info.getJSONArray("properties");
-            int num_of_property = sensor_properties.length();
+        for (int i = 0; i < sensors.size(); i++) {
+            sensor = sensors.get(i).getAsJsonObject();
+            element_info = sensor.getAsJsonObject("bkdn_elem_info");
+            sensor_properties = element_info.getAsJsonArray("properties");
+            int num_of_property = sensor_properties.size();
 
             if (num_of_property > 1) {
-                JSONArray selected_properties = new JSONArray();
+                JsonArray selected_properties = new JsonArray();
                 for (int j = 0; j < num_of_property; j++) {
-                    JSONObject property = sensor_properties.getJSONObject(j);
-                    String[] val_parts = property.getString("val").split(" ");
+                    JsonObject property = sensor_properties.get(j).getAsJsonObject();
+                    String[] val_parts = property.get("val").getAsString().split(" ");
                     boolean number_of_items = checkIfDigit(val_parts[0]);
                     if (val_parts.length == 2 && val_parts[1].equals("items") && number_of_items) {
-                        String urn = property.getString("name");
+                        String urn = property.get("name").getAsString();
                         if (urn.contains(":"))
                             urn = urn.replace(":", "%3A");
                         String json_string = "{\"urn\": \"" + urn + "\"," + "\"num\": " +
                                 Integer.parseInt(val_parts[0]) + "}";
-                        JSONObject json_object = new JSONObject(json_string);
-                        selected_properties.put(json_object);
+                        JsonObject json_object = new Gson().fromJson(json_string , JsonObject.class);
+                        selected_properties.add(json_object);
                     }
                 }
-                string_selected_sensor = "{\"name\": \"" + element_info.get("name") + "\"," + "\"id\": \"" +
-                        element_info.get("instance_id") + "\"," + "\"props\": " + selected_properties + "}";
-                json_selected_sensor = new JSONObject(string_selected_sensor);
+                string_selected_sensor = "{\"name\": \"" + element_info.get("name").getAsString() + "\"," + "\"id\": " +
+                        element_info.get("instance_id") + "," + "\"props\": " + selected_properties + "}";
+                json_selected_sensor = new Gson().fromJson(string_selected_sensor, JsonObject.class);
                 selected_sensors.add(json_selected_sensor);
             }
         }
         return selected_sensors;
     }
 
-    private String getUrl(List<JSONObject> selected_sensors) {
+    private String getUrl(List<JsonObject> selected_sensors) {
         String urn, urlString = null;
-        for (JSONObject sensor : selected_sensors) {
-            if (sensor.get("name").equals(config.getSignal())) {
-                urn = sensor.getJSONArray("props").getJSONObject(0).getString("urn");
+        for (JsonObject sensor : selected_sensors) {
+            if (sensor.get("name").getAsString().equals(config.getSignal())) {
+                urn = sensor.getAsJsonArray("props").get(0).getAsJsonObject().get("urn").getAsString();
 
                 try {
                     String first_date = config.LastDateTime();
@@ -307,5 +308,4 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
         }
         return urlString;
     }
-
 }

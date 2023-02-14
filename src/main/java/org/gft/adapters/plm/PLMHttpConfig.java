@@ -63,40 +63,39 @@ public class PLMHttpConfig {
         return timestamp;
     }
 
-    public String NextDateTime() throws java.text.ParseException {
+    public String NextDateTime() throws ParseException {
         String date = " ";
-        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0){
-            return getMillis(this.highest_date);
-        }
+
         try{
             Date myDate = date_format.parse(this.lowest_date);
-            // convert date to localdatetime
+            // convert date to local datetime
             LocalDateTime local_date_time = myDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-            local_date_time = local_date_time.plusMinutes(60);
+            local_date_time = local_date_time.plusMinutes(32);
             Date date_plus = Date.from(local_date_time.atZone(ZoneId.systemDefault()).toInstant());
             date = date_format.format(date_plus);
         }catch (ParseException e){
             e.printStackTrace();
         }
 
+        if(date.compareToIgnoreCase(this.highest_date) >= 0){
+            return getMillis(this.highest_date);
+        }
+
         return getMillis(date);
     }
 
-    public String LastDateTime() throws java.text.ParseException {
+    public String LastDateTime() throws ParseException {
         String date = " ";
-        if(this.lowest_date.compareToIgnoreCase(this.highest_date) >= 0){
-            return getMillis(this.lowest_date);
-        }
 
         try{
             Date myDate = date_format.parse(this.lowest_date);
-            // convert date to localdatetimeq
+            // convert date to local datetime
             LocalDateTime local_date_time = myDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
             if(this.first_time){
                 this.first_time = false;
-                local_date_time = local_date_time.minusMinutes(60);
+                local_date_time = local_date_time.minusMinutes(30);
             }
-            local_date_time = local_date_time.plusMinutes(60);// 3.5 hours
+            local_date_time = local_date_time.plusMinutes(30);// 3.5 hours
             Date date_plus = Date.from(local_date_time.atZone(ZoneId.systemDefault()).toInstant());
             date = date_format.format(date_plus);
             this.lowest_date = date;
