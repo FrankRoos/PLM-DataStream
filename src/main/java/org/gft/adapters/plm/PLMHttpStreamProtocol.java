@@ -167,7 +167,7 @@ public class PLMHttpStreamProtocol extends PLMPullProtocol {
             if (this.accessToken != null) {
                 this.accessToken = null;
             }
-         
+
             result = connection.getInputStream();
 
         } catch (Exception e) {
